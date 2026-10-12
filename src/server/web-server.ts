@@ -24,6 +24,12 @@ import { VERSION } from '../index.js';
 /** MCP Streamable HTTP transport 处理函数类型（被 mcp-server.ts 注入） */
 export type McpHttpHandler = (req: IncomingMessage, res: ServerResponse, parsedBody?: unknown) => Promise<void>;
 
+/** 连续超时多少次后熔断（通知 AI 结束任务）。可用 MCP_MAX_CONSECUTIVE_TIMEOUTS 调整，默认 30。 */
+function readMaxConsecutiveTimeouts(): number {
+  const parsed = Number.parseInt(process.env['MCP_MAX_CONSECUTIVE_TIMEOUTS'] ?? '', 10);
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : 30;
+}
+
 /**
  * Web服务器类
  */
@@ -44,7 +50,7 @@ export class WebServer {
   // 连续超时熔断计数也在服务端做（页面刷新不丢）。
   private sessionTimers = new Map<string, NodeJS.Timeout>();
   private consecutiveTimeouts = 0;
-  private static readonly MAX_CONSECUTIVE_TIMEOUTS = 3;
+  private static readonly MAX_CONSECUTIVE_TIMEOUTS = readMaxConsecutiveTimeouts();
   private static readonly RESULT_RETENTION_MS = 10 * 60 * 1000;
   private static readonly MAX_WAIT_SECONDS = 45;
 

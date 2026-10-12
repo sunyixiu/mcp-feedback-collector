@@ -21,7 +21,7 @@ The tools follow an async-handle protocol so no MCP request hangs for long:
 
 Statuses: `waiting` / `completed` / `timed_out` / `cancelled` / `not_found` / `error`.
 
-Timeout and circuit breaker: after `MCP_DIALOG_TIMEOUT` seconds the session becomes `timed_out` with an automatic reply; three in a row return "the user has been unresponsive, task over", and the rule tells the AI to stop.
+Timeout and circuit breaker: after `MCP_DIALOG_TIMEOUT` seconds the session becomes `timed_out` with an automatic reply ("timeout N/30") and the AI may call `collect_feedback` again to keep waiting. After 30 timeouts in a row (default, set `MCP_MAX_CONSECUTIVE_TIMEOUTS` to change) it returns "the user has been unresponsive, task over", and the rule tells the AI to stop. Any reply from you resets the count.
 
 ## Install
 
@@ -78,6 +78,7 @@ The script only plays the mp3 next to it with PowerShell's `MediaPlayer`; it mak
 | `MCP_ALLOWED_HOSTS` | empty | extra allowed Host/Origin values (comma separated); `*` disables the check (not advised) |
 | `MCP_USE_FIXED_URL` | `false` | keep one stable URL |
 | `MCP_DIALOG_TIMEOUT` | `300` | seconds per session (min 10) |
+| `MCP_MAX_CONSECUTIVE_TIMEOUTS` | `30` | timeouts in a row before the breaker tells the AI to stop |
 | `MCP_ENABLE_CHAT` / `MCP_ENABLE_IMAGE_TO_TEXT` | `false` | optional features, need `MCP_API_KEY` |
 | `MCP_API_KEY` / `MCP_API_BASE_URL` / `MCP_DEFAULT_MODEL` | — | any OpenAI-compatible API |
 | `MCP_FEEDBACK_DATA_DIR` | `~/.mcp-feedback-collector` | pending-instruction queue |

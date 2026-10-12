@@ -15,12 +15,12 @@ Use together with `mcp-feedback-collector` (stdio mode). It exposes four tools:
 2. Call `collect_feedback` with a short plain-text `work_summary` (under 500 characters; no tables, code blocks or escape sequences). It returns a `session_id` immediately and does not block.
 3. Loop `wait_feedback({ session_id, wait_seconds: 45 })` for as long as the result says `status: waiting`.
 4. On `completed`: act on the user's feedback, and when done, go back to step 1.
-5. On `timed_out`: the user has not answered yet; you may call `collect_feedback` again. If the text says the user has been unresponsive for too long and the task is over, stop and do not call any feedback tool again.
+5. On `timed_out`: the user has not answered yet; call `collect_feedback` again and keep waiting (up to 30 rounds in a row). If the text says the user has been unresponsive for too long and the task is over, stop and do not call any feedback tool again.
 
 ## When you may stop
 
 - The user clearly says stop / end / done / enough / that's all.
-- The tool reports the circuit breaker (three timeouts in a row).
+- The tool reports the circuit breaker (30 timeouts in a row).
 
 ## Long tasks
 

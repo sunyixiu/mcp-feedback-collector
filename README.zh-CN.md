@@ -21,7 +21,7 @@
 
 会话状态：`waiting` / `completed` / `timed_out` / `cancelled` / `not_found` / `error`。
 
-超时与熔断：超过 `MCP_DIALOG_TIMEOUT` 秒没回复 → `timed_out`，服务端自动代答“用户暂时未回复（连续第 N/3 次超时）”；连续 3 次 → 返回“用户长时间未响应，任务结束”，规则会要求 AI 停止。
+超时与熔断：超过 `MCP_DIALOG_TIMEOUT` 秒没回复 → `timed_out`，服务端自动代答“用户暂时未回复（连续第 N/30 次超时）”，AI 可以重新调用 `collect_feedback` 继续等；连续 30 次（默认，可用 `MCP_MAX_CONSECUTIVE_TIMEOUTS` 调整）都没回复 → 返回“用户长时间未响应，任务结束”，规则会要求 AI 停止。你一回复，计数就清零。
 
 ## 安装
 
@@ -78,6 +78,7 @@ AI 调用 `collect_feedback` 时播放一声提示音，这样你不用一直盯
 | `MCP_ALLOWED_HOSTS` | 空 | 额外允许的 Host/Origin（逗号分隔，`host` 或 `host:port`）；`*` 关闭检查（不推荐） |
 | `MCP_USE_FIXED_URL` | `false` | 保持固定网址，页面自己切换会话 |
 | `MCP_DIALOG_TIMEOUT` | `300` | 单个会话等待秒数（最小 10） |
+| `MCP_MAX_CONSECUTIVE_TIMEOUTS` | `30` | 连续多少次超时后熔断，通知 AI 结束任务 |
 | `MCP_ENABLE_CHAT` / `MCP_ENABLE_IMAGE_TO_TEXT` | `false` | 可选的 AI 对话 / 图片转文字，需要 `MCP_API_KEY` |
 | `MCP_API_KEY` / `MCP_API_BASE_URL` / `MCP_DEFAULT_MODEL` | — | 任意 OpenAI 兼容接口 |
 | `MCP_FEEDBACK_DATA_DIR` | `~/.mcp-feedback-collector` | 临时指令队列存放位置 |

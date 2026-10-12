@@ -5,5 +5,6 @@
 - stdio only; async `collect_feedback` / `wait_feedback` / `poll_feedback` protocol and `check_pending_instructions`.
 - Security: bind to `127.0.0.1` by default; `Host` / `Origin` allow-list for HTTP and Socket.IO (`MCP_ALLOWED_HOSTS`).
 - The stdio diagnostic log is now off by default (`MCP_STDIO_DIAG=true` to enable) and redacts secrets.
+- The timeout circuit breaker now trips after 30 consecutive timeouts (was 3); configurable with `MCP_MAX_CONSECUTIVE_TIMEOUTS`.
 - Removed hard-coded server addresses, promo links and Windows-service scripts.
 - Added rules, example configs and an optional Windows sound-alert hook.
