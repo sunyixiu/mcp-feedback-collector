@@ -1,0 +1,44 @@
+---
+description: 每轮结束前必须通过 feedback 工具向用户汇报并等待反馈
+alwaysApply: true
+---
+
+# MCP Feedback Collector 使用规则
+
+本规则配合 `mcp-feedback-collector`（stdio 模式）使用。它提供 4 个工具：
+`check_pending_instructions`、`collect_feedback`、`wait_feedback`、`poll_feedback`。
+
+## 每轮对话结束前的固定流程
+
+1. 调用 `check_pending_instructions`（无参数）。
+   - 返回 `PENDING_INSTRUCTIONS_FOUND ...`：按顺序先执行这些临时指令，执行完再调用一次，直到返回 `NO_PENDING_INSTRUCTIONS`。
+2. 调用 `collect_feedback`，参数 `work_summary` 写简短的纯文本汇报（500 字以内，不要表格、代码块、转义字符）。它会立刻返回 `session_id`，不会阻塞。
+3. 循环调用 `wait_feedback({ session_id, wait_seconds: 45 })`，只要结果里 `status: waiting` 就继续调用。
+4. 状态变为 `completed`：按用户反馈继续工作，工作完成后回到第 1 步。
+5. 状态为 `timed_out`：说明用户暂时没回复，可以重新调用 `collect_feedback`；但如果返回内容是“用户长时间未响应，任务结束”，就必须停止，不再调用任何 feedback 工具。
+
+## 结束条件
+
+只有下面两种情况可以不再调用 feedback 工具：
+
+- 用户明确说了 停止 / 结束 / 不用了 / done / stop / 够了 / 就这样。
+- 工具返回了“用户长时间未响应，任务结束”（连续 3 次超时的熔断）。
+
+## 长任务
+
+- 每完成一个阶段性步骤，顺手调用一次 `check_pending_instructions`，这样用户在网页里“插入临时任务”能尽快被执行。
+- 批量循环处理时，每处理完一批检查一次。
+
+## 工具调用被拒绝时
+
+用户拒绝（Reject / Deny / Cancel）任何工具调用，通常表示他有新想法。不要换个写法重试同一操作：立刻调用 `collect_feedback` 询问用户的意图。
+
+## 工具失败时
+
+`collect_feedback` / `wait_feedback` 报错时最多重试 3 次；仍失败就在对话里用文字提问，不要静默结束。
+
+## 不要做的事
+
+- 不要修改 MCP 配置、启动参数（尤其不要给它加 `--debug`，会污染 stdout 协议流）。
+- 不要把 `work_summary` 写成长文档。
+- 不要对同一个会话重复调用 `collect_feedback`。

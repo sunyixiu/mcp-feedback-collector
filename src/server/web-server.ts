@@ -18,6 +18,7 @@ import { ImageToTextService } from '../utils/image-to-text-service.js';
 import { performanceMonitor } from '../utils/performance-monitor.js';
 import { SessionStorage, SessionData } from '../utils/session-storage.js';
 import { PendingInstructionStore } from '../utils/pending-instruction-store.js';
+import { HostGuard } from '../utils/host-guard.js';
 import { VERSION } from '../index.js';
 
 /** MCP Streamable HTTP transport 处理函数类型（被 mcp-server.ts 注入） */
@@ -37,6 +38,7 @@ export class WebServer {
   private imageProcessor: ImageProcessor;
   private imageToTextService: ImageToTextService;
   private sessionStorage: SessionStorage;
+  private hostGuard: HostGuard;
   private mcpHttpHandler: McpHttpHandler | null = null;
   // 服务端权威超时：每个会话一个精确定时器（不受浏览器后台节流影响），
   // 连续超时熔断计数也在服务端做（页面刷新不丢）。
@@ -63,11 +65,27 @@ export class WebServer {
     // 创建HTTP服务器
     this.server = createServer(this.app);
     
+    // Host / Origin 白名单：防止其他网页跨站访问、DNS 重绑定向 agent 注入指令
+    this.hostGuard = new HostGuard({
+      getPort: () => this.port,
+      // 绑定地址与回环地址一样，必须同时匹配监听端口
+      localHosts: [config.serverHost],
+      extraHosts: [...(config.allowedHosts ?? []), config.serverBaseUrl]
+    });
+
     // 创建Socket.IO服务器
     this.io = new SocketIOServer(this.server, {
       cors: {
         origin: config.corsOrigin,
         methods: ['GET', 'POST']
+      },
+      // WebSocket 不受浏览器同源策略限制，必须在握手阶段自行校验 Host / Origin
+      allowRequest: (req, callback) => {
+        const verdict = this.hostGuard.check(req.headers.host, req.headers.origin);
+        if (!verdict.allowed) {
+          logger.warn(`拒绝 Socket.IO 连接: ${verdict.reason}`);
+        }
+        callback(verdict.allowed ? null : 'Forbidden', verdict.allowed);
       },
       // 默认 maxHttpBufferSize 仅 1MB，>1MB 的截图走 websocket 会直接断连（"发不出去"）。
       // 提到 100MB，并放宽 ping 超时，避免大图传输期间被误判离线。
@@ -143,6 +161,20 @@ export class WebServer {
    * 设置中间件
    */
   private setupMiddleware(): void {
+    // Host / Origin 校验：必须最先执行，先于静态文件和所有路由
+    this.app.use((req, res, next) => {
+      const verdict = this.hostGuard.check(req.headers.host, req.headers.origin);
+      if (verdict.allowed) {
+        next();
+        return;
+      }
+      logger.warn(`拒绝请求 ${req.method} ${req.path}: ${verdict.reason}`);
+      res.status(403).json({
+        error: 'Forbidden: host or origin not allowed',
+        hint: 'Open the page via http://localhost:<port>, or list the host in MCP_ALLOWED_HOSTS.'
+      });
+    });
+
     // 安全中间件
     this.app.use(helmet({
       contentSecurityPolicy: false // 允许内联脚本
@@ -1003,10 +1035,15 @@ export class WebServer {
       }
 
       // 启动服务器前再次确认端口可用
-      const bindHost = this.config.serverHost;
-      logger.info(`准备在 ${bindHost || '0.0.0.0'}:${this.port} 启动服务器...`);
+      // 默认只监听本机回环地址；页面没有登录保护，不应暴露给局域网或公网。
+      // 需要远程访问时显式设置 MCP_SERVER_HOST，并用 MCP_ALLOWED_HOSTS 声明可信主机。
+      const bindHost = this.config.serverHost || '127.0.0.1';
+      logger.info(`准备在 ${bindHost}:${this.port} 启动服务器...`);
+      if (bindHost === '0.0.0.0' || bindHost === '::') {
+        logger.warn('Web 服务绑定在所有网卡上，且页面没有登录保护：请设置 MCP_ALLOWED_HOSTS 声明可信访问地址，不要暴露到不可信网络。');
+      }
 
-      // 启动服务器（指定 MCP_SERVER_HOST 时仅 bind 该地址，未指定保持原行为 bind 0.0.0.0 向后兼容）
+      // 启动服务器
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error('Server start timeout'));
@@ -1029,14 +1066,11 @@ export class WebServer {
           resolve();
         };
 
-        if (bindHost) {
-          this.server.listen(this.port, bindHost, onListen);
-        } else {
-          this.server.listen(this.port, onListen);
-        }
+        this.server.listen(this.port, bindHost, onListen);
       });
 
       this.isServerRunning = true;
+      logger.info(`Host/Origin 白名单: ${this.hostGuard.describe()}`);
 
       // 根据配置显示不同的启动信息
       const serverUrl = `http://localhost:${this.port}`;

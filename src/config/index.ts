@@ -4,6 +4,7 @@
 
 import { config as dotenvConfig } from 'dotenv';
 import { Config, MCPError } from '../types/index.js';
+import { parseHostList } from '../utils/host-guard.js';
 
 // 加载环境变量
 dotenvConfig();
@@ -65,6 +66,7 @@ export function createDefaultConfig(): Config {
     // 新增：服务器主机配置
     serverHost: getOptionalEnvVar('MCP_SERVER_HOST'),
     serverBaseUrl: getOptionalEnvVar('MCP_SERVER_BASE_URL'),
+    allowedHosts: parseHostList(process.env['MCP_ALLOWED_HOSTS']),
     // 新增：URL和端口优化配置
     forcePort: getEnvBoolean('MCP_FORCE_PORT', false),
     killProcessOnPortConflict: getEnvBoolean('MCP_KILL_PORT_PROCESS', false),
@@ -147,7 +149,8 @@ export function displayConfig(config: Config): void {
   console.log(`  Max File Size: ${(config.maxFileSize / 1024 / 1024).toFixed(1)}MB`);
   console.log(`  Log Level: ${config.logLevel}`);
   console.log(`  API Key: ${config.apiKey ? '***configured***' : 'not set'}`);
-  console.log(`  Server Host: ${config.serverHost || '自动检测'}`);
+  console.log(`  Server Host: ${config.serverHost || '127.0.0.1 (default)'}`);
+  console.log(`  Allowed Hosts: ${config.allowedHosts && config.allowedHosts.length > 0 ? config.allowedHosts.join(', ') : '(loopback only)'}`);
   console.log(`  Server Base URL: ${config.serverBaseUrl || '自动生成'}`);
   console.log(`  Force Port: ${config.forcePort ? 'enabled' : 'disabled'}`);
   console.log(`  Kill Port Process: ${config.killProcessOnPortConflict ? 'enabled' : 'disabled'}`);

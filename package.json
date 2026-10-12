@@ -80,6 +80,7 @@
     "dist",
     "rules",
     "examples",
+    "hooks",
     "README.md",
     "README.zh-CN.md",
     "LICENSE"

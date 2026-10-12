@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeMCPExecution": [
+      {
+        "command": "cmd /c hooks\\feedback-sound.bat",
+        "matcher": "collect_feedback"
+      }
+    ]
+  }
+}

@@ -14,8 +14,9 @@ export interface Config {
   maxFileSize: number;
   logLevel: string;
   // 新增：服务器主机配置
-  serverHost?: string | undefined;
+  serverHost?: string | undefined;        // 监听地址，默认 127.0.0.1
   serverBaseUrl?: string | undefined;
+  allowedHosts?: string[] | undefined;    // 额外允许的 Host/Origin，"*" 表示关闭校验
   // 新增：URL和端口优化配置
   forcePort?: boolean | undefined;           // 强制使用指定端口
   killProcessOnPortConflict?: boolean | undefined;  // 自动终止占用进程
